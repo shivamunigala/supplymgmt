@@ -9,6 +9,7 @@ public class Response {
 	private String resource;
 	private User user;
 	private List<User> users;
+	private String message;
 	public Status getStatus() {
 		return status;
 	}
@@ -32,5 +33,11 @@ public class Response {
 	}
 	public void setUsers(List<User> users) {
 		this.users = users;
+	}
+	public String getMessage() {
+		return message;
+	}
+	public void setMessage(String message) {
+		this.message = message;
 	}
 }
