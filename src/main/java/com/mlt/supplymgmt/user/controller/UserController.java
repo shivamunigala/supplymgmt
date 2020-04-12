@@ -2,6 +2,7 @@ package com.mlt.supplymgmt.user.controller;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -122,24 +124,44 @@ public class UserController {
 	}
 	
 	private final static String ALLUSER_DETAILS = "select id, name, username, role from  supply_mgmt.users";
-	
+	private final static String REQUESTEDUSER_DETAILS = "select id, name, username, role from  supply_mgmt.users where id in (:ids)";
 	@GetMapping
-	public ResponseEntity<Response> getAllUser(){
+	public ResponseEntity<Response> getAllUser(String ids){
 		
 		ResponseEntity<Response> response;
 		Response resp = new Response();	
 		resp.setStatus(Status.FAILURE);
-		try {
-			List<User> users = jdbcTemplate.query(ALLUSER_DETAILS, new UserMapper());
+		if(ids==null||ids.isEmpty()) {
+			try {
+				List<User> users = jdbcTemplate.query(ALLUSER_DETAILS, new UserMapper());
 		
 		
-			resp.setStatus(Status.SUCCESS);
-			resp.setUsers(users);
-			response = new ResponseEntity<>(resp, HttpStatus.OK);
-		}catch(Exception e) {
-			
-			resp.setMessage("Unknown Exception");
-			response = new ResponseEntity<>(resp, HttpStatus.INTERNAL_SERVER_ERROR);
+				resp.setStatus(Status.SUCCESS);
+				resp.setUsers(users);
+				response = new ResponseEntity<>(resp, HttpStatus.OK);
+			}catch(Exception e) {
+				e.printStackTrace();
+				resp.setMessage("Unknown Exception");
+				response = new ResponseEntity<>(resp, HttpStatus.INTERNAL_SERVER_ERROR);
+			}
+		}
+		else {
+			try {
+				
+				List<String> idslist = Arrays.asList(ids.split(","));
+				MapSqlParameterSource parameters = new MapSqlParameterSource();
+			    parameters.addValue("ids", idslist);
+				List<User> users = jdbcTemplate.query(REQUESTEDUSER_DETAILS, parameters, new UserMapper());
+		
+		
+				resp.setStatus(Status.SUCCESS);
+				resp.setUsers(users);
+				response = new ResponseEntity<>(resp, HttpStatus.OK);
+			}catch(Exception e) {
+				e.printStackTrace();
+				resp.setMessage("Unknown Exception");
+				response = new ResponseEntity<>(resp, HttpStatus.INTERNAL_SERVER_ERROR);
+			}
 		}
 		return response;
 	}
@@ -177,7 +199,39 @@ public class UserController {
 		}
 		return response;
 	}
+	/*POST http://localhost:8080/supplymgmt/users/authenticate
+		Body: 
+		{
+		    "username": "<username>",
+		    "password":"<password>"
+		}*/
+	private final static String AUTHENTICATION = "select 1 from supply_mgmt.users where username =:username and password =:password";
 	
+	@PostMapping("/authenticate")
+	public ResponseEntity<Response> authenticateUser(@RequestBody User user){
+		
+		ResponseEntity<Response> response;
+		Response resp = new Response();
+		resp.setStatus(Status.FAILURE);
+		
+		try {
+			Map<String, Object> params = new HashMap<>();
+			params.put("password", user.getPassword());
+			params.put("username", user.getUsername());
+			
+			jdbcTemplate.queryForObject(AUTHENTICATION, params, Integer.class);
+			
+			response = new ResponseEntity<Response>(resp, HttpStatus.OK);
+			resp.setStatus(Status.SUCCESS);
+	
+		}catch(Exception e) {
+			
+			response = new ResponseEntity<Response>(resp, HttpStatus.UNAUTHORIZED);
+			resp.setStatus(Status.FAILURE);
+			e.printStackTrace();
+		}
+		return response;
+	}
 	private class UserMapper implements RowMapper<User> {
 
 		@Override
